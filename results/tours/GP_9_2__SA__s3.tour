@@ -1,0 +1,25 @@
+NAME : GP_9_2
+COMMENT : Tour found
+TYPE : TOUR
+DIMENSION : 18
+TOUR_SECTION
+8
+4
+16
+1
+18
+13
+5
+14
+9
+15
+6
+10
+7
+17
+11
+3
+12
+2
+-1
+EOF

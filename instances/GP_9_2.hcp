@@ -1,0 +1,35 @@
+NAME : GP_9_2
+COMMENT : Petersen generalizado GP(n,2), n = 3 mod 6 (familia incluida en el FHCP)
+TYPE : HCP
+DIMENSION : 18
+EDGE_DATA_FORMAT : EDGE_LIST
+EDGE_DATA_SECTION
+1 18
+1 7
+1 16
+2 12
+2 14
+2 8
+3 11
+3 12
+3 5
+4 10
+4 8
+4 16
+5 13
+5 14
+6 10
+6 11
+6 15
+7 17
+7 10
+8 15
+9 18
+9 14
+9 15
+11 17
+12 16
+13 17
+13 18
+-1
+EOF

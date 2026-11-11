@@ -77,7 +77,7 @@ def convergence(hist, inst, t_limit, fname, title):
             ts = np.array([p[0] for p in h["historia"]])
             cs = np.array([p[1] for p in h["historia"]], dtype=float)
             idx = np.searchsorted(ts, grid, side="right") - 1
-            y = np.where(idx >= 0, cs[np.clip(idx, 0, None)], np.nan)
+            y = cs[np.clip(idx, 0, None)]
             curves.append(y)
         if not curves:
             continue
@@ -107,6 +107,9 @@ def main():
     figdir = os.path.join(a.results, "figuras")
     os.makedirs(figdir, exist_ok=True)
     meta = df[df.algoritmo != "LKH"]
+    algorithms = [algorithm for algorithm in ORDER if algorithm in set(meta.algoritmo)]
+    if not algorithms:
+        raise ValueError("resultados.csv no contiene algoritmos comparables (GA, SA, ACO, ABC, DE o PSO)")
     t_limit = float(meta.tiempo_total_s.max())
 
     # ------------------------------------------------ tabla instancia x algoritmo
@@ -129,32 +132,35 @@ def main():
     alg = meta.groupby("algoritmo").agg(corridas=("exito", "size"), exitos=("exito", "sum"),
                                         costo_norm_prom=("costo_norm", "mean"),
                                         precision_prom=("precision", "mean"),
-                                        tiempo_prom_s=("tiempo_total_s", "mean")).reindex(ORDER)
+                                        tiempo_prom_s=("tiempo_total_s", "mean")).reindex(algorithms)
     alg["tasa_exito"] = alg.exitos / alg.corridas
     insts = inst_order(meta)
-    alg["instancias_resueltas"] = [int((meta[(meta.algoritmo == x)].groupby("instancia").exito.max() > 0).sum()) for x in ORDER]
+    alg["instancias_resueltas"] = [
+        int((meta[(meta.algoritmo == x)].groupby("instancia").exito.max() > 0).sum())
+        for x in algorithms
+    ]
     # Ranking promedio (Friedman) sobre el costo medio por instancia; empates -> rango promedio
-    piv = meta.groupby(["instancia", "algoritmo"]).mejor_costo.mean().unstack()[ORDER].loc[insts]
-    tpiv = meta.groupby(["instancia", "algoritmo"]).tiempo_total_s.mean().unstack()[ORDER].loc[insts].round(1)  # empates < 0.1 s cuentan como empate
+    piv = meta.groupby(["instancia", "algoritmo"]).mejor_costo.mean().unstack()[algorithms].loc[insts]
+    tpiv = meta.groupby(["instancia", "algoritmo"]).tiempo_total_s.mean().unstack()[algorithms].loc[insts].round(1)  # empates < 0.1 s cuentan como empate
     # desempate por tiempo: rango sobre (costo, tiempo)
     ranks = []
     for inst in insts:
-        key = sorted(ORDER, key=lambda x: (piv.loc[inst, x], tpiv.loc[inst, x]))
+        key = sorted(algorithms, key=lambda x: (piv.loc[inst, x], tpiv.loc[inst, x]))
         r = {}
-        for x in ORDER:
-            same = [k for k in ORDER if piv.loc[inst, k] == piv.loc[inst, x] and abs(tpiv.loc[inst, k] - tpiv.loc[inst, x]) < 1e-9]
+        for x in algorithms:
+            same = [k for k in algorithms if piv.loc[inst, k] == piv.loc[inst, x] and abs(tpiv.loc[inst, k] - tpiv.loc[inst, x]) < 1e-9]
             pos = [key.index(k) + 1 for k in same]
             r[x] = float(np.mean(pos))
         ranks.append(r)
-    rk = pd.DataFrame(ranks, index=insts)[ORDER]
+    rk = pd.DataFrame(ranks, index=insts)[algorithms]
     alg["rango_promedio"] = rk.mean().values
     alg.round(4).to_csv(os.path.join(a.results, "resumen_algoritmos.csv"))
-    fr = stats.friedmanchisquare(*[rk[x].values for x in ORDER])
+    fr = stats.friedmanchisquare(*[rk[x].values for x in algorithms]) if len(algorithms) > 1 else None
     # Wilcoxon pareado: mejor algoritmo vs cada uno (costo de todas las corridas, emparejado por instancia y semilla)
     best = alg["rango_promedio"].idxmin()
     wil = {}
     pv = meta.pivot_table(index=["instancia", "semilla"], columns="algoritmo", values="mejor_costo")
-    for x in ORDER:
+    for x in algorithms:
         if x == best:
             continue
         d = pv[best] - pv[x]
@@ -167,7 +173,8 @@ def main():
     k = len(holm)
     for i, (x, d) in enumerate(holm):
         d["p_holm"] = min(1.0, d["p"] * (k - i))
-    st = {"friedman_chi2": float(fr.statistic), "friedman_p": float(fr.pvalue), "instancias": len(insts),
+    st = {"friedman_chi2": None if fr is None else float(fr.statistic),
+          "friedman_p": None if fr is None else float(fr.pvalue), "instancias": len(insts),
           "mejor_por_rango": best, "wilcoxon_vs_mejor": wil,
           "rangos_por_instancia": rk.round(2).to_dict()}
     with open(os.path.join(a.results, "estadistica.json"), "w", encoding="utf-8") as fh:
@@ -175,13 +182,13 @@ def main():
 
     # ------------------------------------------------ figuras
     rows = [f"{i} (n={int(meta[meta.instancia == i].n.iloc[0])})" for i in insts]
-    succ = meta.groupby(["instancia", "algoritmo"]).exito.mean().unstack()[ORDER].loc[insts].values
+    succ = meta.groupby(["instancia", "algoritmo"]).exito.mean().unstack()[algorithms].loc[insts].values
     runs = int(meta.groupby(["instancia", "algoritmo"]).size().max())
-    heatmap(succ, rows, ORDER, "Tasa de éxito: fracción de corridas que encontraron el ciclo",
+    heatmap(succ, rows, algorithms, "Tasa de éxito: fracción de corridas que encontraron el ciclo",
             os.path.join(figdir, "tasa_exito.png"), lambda v: f"{v * runs:.0f}/{runs}", vmax=1.0,
             note=f"{runs} corridas por celda, {t_limit:.0f} s máx. por corrida")
     cmean = piv.values
-    heatmap(cmean, rows, ORDER, "Aristas faltantes promedio c(π) al terminar (0 = ciclo encontrado)",
+    heatmap(cmean, rows, algorithms, "Aristas faltantes promedio c(π) al terminar (0 = ciclo encontrado)",
             os.path.join(figdir, "costo_promedio.png"), lambda v: f"{v:.1f}", cmap="Oranges")
     for inst in insts:
         if meta[meta.instancia == inst].n.iloc[0] >= 60:

@@ -8,7 +8,7 @@ python run_experiments.py --generate-suite instances
 # 2) Correr todos los algoritmos, 5 semillas, 10 s por corrida:
 python run_experiments.py --instances instances --runs 5 --time 10 --out results
 
-# 3) Correr sobre el FHCP real (descomprimir FHCPCS.7z en fhcp/ y las soluciones en fhcp_sols/):
+# 3) Correr sobre el FHCP real (archivos .hcp en fhcp/ y soluciones .tou en fhcp_sols/):
 python run_experiments.py --instances fhcp --solutions fhcp_sols --max-n 1000 --runs 5 --time 30 --out results_fhcp
 """
 from __future__ import annotations
@@ -60,6 +60,19 @@ def generate_suite(folder):
     print(f"{len(items)} instancias escritas en {folder}/")
 
 
+def find_reference_tour(sols_dir, instance_path):
+    """Encuentra una solución FHCP para una instancia local o del challenge set."""
+    basename = os.path.basename(instance_path)
+    stem = os.path.splitext(basename)[0]
+    candidates = (
+        os.path.join(sols_dir, basename + ".tou"),
+        os.path.join(sols_dir, basename + ".tour"),
+        os.path.join(sols_dir, stem + ".tour"),
+        os.path.join(sols_dir, stem + ".tou"),
+    )
+    return next((path for path in candidates if os.path.exists(path)), None)
+
+
 def job(args):
     path, algo, seed, tlimit, sols_dir, tours_dir = args
     g = load(path)
@@ -70,8 +83,8 @@ def job(args):
     perm = r.pop("perm")
     ref = None
     if sols_dir:
-        ref_path = os.path.join(sols_dir, os.path.splitext(os.path.basename(path))[0] + ".tour")
-        if os.path.exists(ref_path):
+        ref_path = find_reference_tour(sols_dir, path)
+        if ref_path is not None:
             ref = read_tour(ref_path)
     met = edge_metrics(g, perm, ref)
     valid = is_hamiltonian(g, perm)
@@ -98,7 +111,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--generate-suite", metavar="CARPETA")
     ap.add_argument("--instances", default="instances")
-    ap.add_argument("--solutions", default=None, help="carpeta con <instancia>.tour de referencia")
+    ap.add_argument("--solutions", default=None,
+                    help="carpeta con soluciones .tou/.tour de referencia")
     ap.add_argument("--algos", default="GA,SA,ACO,ABC,DE,PSO,LKH")
     ap.add_argument("--runs", type=int, default=5)
     ap.add_argument("--time", type=float, default=10.0, help="segundos por corrida")

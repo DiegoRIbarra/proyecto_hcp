@@ -140,6 +140,44 @@ python run_experiments.py --instances fhcp --solutions fhcp_sols --max-n 1000 --
 LKH utiliza una sola semilla por instancia y no depende del parámetro `--time`
 de la misma forma que las metaheurísticas internas.
 
+### 3.3.1 Ejecutar exactamente nueve grafos reales con LKH
+
+Para probar solo `graph1.hcp` a `graph9.hcp`, primero crea una selección local
+con sus soluciones de referencia. El rango numérico evita confundir `graph10`
+con `graph2` al ordenar nombres alfabéticamente:
+
+```powershell
+New-Item -ItemType Directory -Force .\fhcp_9 | Out-Null
+New-Item -ItemType Directory -Force .\fhcp_sols_9 | Out-Null
+
+1..9 | ForEach-Object {
+    Copy-Item ".\fhcp\graph$_.hcp" ".\fhcp_9\"
+    Copy-Item ".\fhcp_sols\graph$_.hcp.tou" ".\fhcp_sols_9\"
+}
+```
+
+Luego ejecuta los seis algoritmos internos y LKH:
+
+```powershell
+python run_experiments.py `
+  --instances fhcp_9 `
+  --solutions fhcp_sols_9 `
+  --algos GA,SA,ACO,ABC,DE,PSO,LKH `
+  --runs 5 `
+  --time 30 `
+  --out results_fhcp_9_lkh
+```
+
+Esto genera 270 corridas de las metaheurísticas y 9 corridas de LKH, para un
+total de 279 corridas. Finalmente, genera los resúmenes y figuras:
+
+```powershell
+python analyze.py --results results_fhcp_9_lkh
+```
+
+El algoritmo LKH requiere la dependencia opcional `elkai`. Si no se incluye
+`LKH` en `--algos`, se pueden ejecutar GA, SA, ACO, ABC, DE y PSO sin ella.
+
 ### 3.4 Analizar los resultados
 
 Después de ejecutar un experimento:

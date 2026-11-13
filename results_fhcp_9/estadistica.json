@@ -1,0 +1,101 @@
+{
+  "friedman_chi2": 25.896739130434785,
+  "friedman_p": 9.344625521643792e-05,
+  "instancias": 9,
+  "mejor_por_rango": "ABC",
+  "wilcoxon_vs_mejor": {
+    "GA": {
+      "estadistico": 0.0,
+      "p": 0.0001415909997498741,
+      "p_holm": 0.0004247729992496223
+    },
+    "SA": {
+      "estadistico": 12.0,
+      "p": 0.3527284930556367,
+      "p_holm": 0.3527284930556367
+    },
+    "ACO": {
+      "estadistico": 0.0,
+      "p": 0.000782701129001274,
+      "p_holm": 0.001565402258002548
+    },
+    "DE": {
+      "estadistico": 0.0,
+      "p": 1.1028941633186143e-05,
+      "p_holm": 5.5144708165930714e-05
+    },
+    "PSO": {
+      "estadistico": 0.0,
+      "p": 1.1028941633186143e-05,
+      "p_holm": 4.411576653274457e-05
+    }
+  },
+  "rangos_por_instancia": {
+    "GA": {
+      "graph1.hcp": 4.5,
+      "graph2.hcp": 4.0,
+      "graph3.hcp": 3.5,
+      "graph4.hcp": 4.0,
+      "graph5.hcp": 3.5,
+      "graph6.hcp": 3.0,
+      "graph7.hcp": 3.5,
+      "graph8.hcp": 4.0,
+      "graph9.hcp": 2.5
+    },
+    "SA": {
+      "graph1.hcp": 1.0,
+      "graph2.hcp": 2.0,
+      "graph3.hcp": 3.5,
+      "graph4.hcp": 2.0,
+      "graph5.hcp": 3.5,
+      "graph6.hcp": 2.0,
+      "graph7.hcp": 3.5,
+      "graph8.hcp": 1.0,
+      "graph9.hcp": 2.5
+    },
+    "ACO": {
+      "graph1.hcp": 4.5,
+      "graph2.hcp": 3.0,
+      "graph3.hcp": 3.5,
+      "graph4.hcp": 3.0,
+      "graph5.hcp": 3.5,
+      "graph6.hcp": 4.0,
+      "graph7.hcp": 3.5,
+      "graph8.hcp": 2.5,
+      "graph9.hcp": 2.5
+    },
+    "ABC": {
+      "graph1.hcp": 2.0,
+      "graph2.hcp": 1.0,
+      "graph3.hcp": 3.5,
+      "graph4.hcp": 1.0,
+      "graph5.hcp": 3.5,
+      "graph6.hcp": 1.0,
+      "graph7.hcp": 3.5,
+      "graph8.hcp": 2.5,
+      "graph9.hcp": 2.5
+    },
+    "DE": {
+      "graph1.hcp": 4.5,
+      "graph2.hcp": 5.5,
+      "graph3.hcp": 3.5,
+      "graph4.hcp": 5.5,
+      "graph5.hcp": 3.5,
+      "graph6.hcp": 5.5,
+      "graph7.hcp": 3.5,
+      "graph8.hcp": 5.5,
+      "graph9.hcp": 5.5
+    },
+    "PSO": {
+      "graph1.hcp": 4.5,
+      "graph2.hcp": 5.5,
+      "graph3.hcp": 3.5,
+      "graph4.hcp": 5.5,
+      "graph5.hcp": 3.5,
+      "graph6.hcp": 5.5,
+      "graph7.hcp": 3.5,
+      "graph8.hcp": 5.5,
+      "graph9.hcp": 5.5
+    }
+  }
+}

@@ -110,7 +110,7 @@ def job(args):
 def save_results(out, rows, hist):
     if not rows:
         return
-    rows.sort(key=lambda r: (r["n"], r["instancia"], r["algoritmo"], r["semilla"]))
+    rows.sort(key=lambda r: (int(r["n"]), r["instancia"], r["algoritmo"], int(r["semilla"])))
     csv_tmp = os.path.join(out, "resultados.csv.tmp")
     json_tmp = os.path.join(out, "historias.json.tmp")
     with open(csv_tmp, "w", newline="", encoding="utf-8") as fh:
@@ -121,6 +121,20 @@ def save_results(out, rows, hist):
         json.dump(hist, fh)
     os.replace(csv_tmp, os.path.join(out, "resultados.csv"))
     os.replace(json_tmp, os.path.join(out, "historias.json"))
+
+
+def load_saved_results(out):
+    results_path = os.path.join(out, "resultados.csv")
+    history_path = os.path.join(out, "historias.json")
+    if not os.path.exists(results_path) or not os.path.exists(history_path):
+        raise FileNotFoundError(
+            f"--resume requiere {results_path} y {history_path} de un checkpoint previo"
+        )
+    with open(results_path, newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    with open(history_path, encoding="utf-8") as fh:
+        hist = json.load(fh)
+    return rows, hist
 
 
 def main():
@@ -136,8 +150,12 @@ def main():
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 1)
     ap.add_argument("--checkpoint", type=int, default=25,
                     help="guarda resultados parciales cada N corridas")
+    ap.add_argument("--resume", action="store_true",
+                    help="continua desde resultados.csv e historias.json existentes")
     ap.add_argument("--out", default="results")
     a = ap.parse_args()
+    if a.checkpoint < 1:
+        ap.error("--checkpoint debe ser mayor que cero")
     if a.generate_suite:
         generate_suite(a.generate_suite)
         return
@@ -155,9 +173,20 @@ def main():
             seeds = [0] if al == "LKH" else range(a.runs)
             for s in seeds:
                 jobs.append((p, al, s, a.time, sols, tours))
-    print(f"{len(paths)} instancias x {len(algos)} algoritmos -> {len(jobs)} corridas")
+    rows, hist = load_saved_results(a.out) if a.resume else ([], [])
+    if a.resume:
+        completed = {
+            (row["instancia"], row["algoritmo"], str(row["semilla"]))
+            for row in rows
+        }
+        jobs = [
+            job_args for job_args in jobs
+            if (load(job_args[0]).name, job_args[1], str(job_args[2])) not in completed
+        ]
+        print(f"Reanudando: {len(rows)} corridas terminadas, {len(jobs)} pendientes")
+    else:
+        print(f"{len(paths)} instancias x {len(algos)} algoritmos -> {len(jobs)} corridas")
     t0 = time.time()
-    rows, hist = [], []
     with Pool(a.workers) as pool:
         for k, (row, h) in enumerate(pool.imap_unordered(job, jobs), 1):
             rows.append(row)

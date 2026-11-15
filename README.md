@@ -98,6 +98,7 @@ Parámetros importantes:
 | `--max-n` | Ignora grafos con más de `n` vértices. |
 | `--workers` | Número de procesos paralelos. |
 | `--checkpoint` | Guarda resultados parciales cada `n` corridas (por defecto, 25). |
+| `--resume` | Reanuda desde los resultados parciales de `--out`. |
 | `--out` | Carpeta de salida. |
 
 El programa detiene una corrida cuando:

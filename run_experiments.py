@@ -107,6 +107,22 @@ def job(args):
     return row, {"instancia": g.name, "algoritmo": algo, "semilla": seed, "historia": r["historia"]}
 
 
+def save_results(out, rows, hist):
+    if not rows:
+        return
+    rows.sort(key=lambda r: (r["n"], r["instancia"], r["algoritmo"], r["semilla"]))
+    csv_tmp = os.path.join(out, "resultados.csv.tmp")
+    json_tmp = os.path.join(out, "historias.json.tmp")
+    with open(csv_tmp, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    with open(json_tmp, "w", encoding="utf-8") as fh:
+        json.dump(hist, fh)
+    os.replace(csv_tmp, os.path.join(out, "resultados.csv"))
+    os.replace(json_tmp, os.path.join(out, "historias.json"))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--generate-suite", metavar="CARPETA")
@@ -118,6 +134,8 @@ def main():
     ap.add_argument("--time", type=float, default=10.0, help="segundos por corrida")
     ap.add_argument("--max-n", type=int, default=None, help="ignora instancias con más vértices")
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 1)
+    ap.add_argument("--checkpoint", type=int, default=25,
+                    help="guarda resultados parciales cada N corridas")
     ap.add_argument("--out", default="results")
     a = ap.parse_args()
     if a.generate_suite:
@@ -146,13 +164,10 @@ def main():
             hist.append(h)
             print(f"[{k}/{len(jobs)}] {row['instancia']:<22} {row['algoritmo']:<5} s={row['semilla']} "
                   f"costo={row['mejor_costo']} exito={row['exito']} t={row['tiempo_total_s']}s", flush=True)
-    rows.sort(key=lambda r: (r["n"], r["instancia"], r["algoritmo"], r["semilla"]))
-    with open(os.path.join(a.out, "resultados.csv"), "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        w.writeheader()
-        w.writerows(rows)
-    with open(os.path.join(a.out, "historias.json"), "w", encoding="utf-8") as fh:
-        json.dump(hist, fh)
+            if k % a.checkpoint == 0:
+                save_results(a.out, rows, hist)
+                print(f"  Checkpoint guardado: {k}/{len(jobs)}", flush=True)
+    save_results(a.out, rows, hist)
     print(f"Listo en {time.time() - t0:.1f} s -> {a.out}/resultados.csv")
 
 

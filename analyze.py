@@ -7,6 +7,7 @@ estadistica.json y figuras/*.png
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 
@@ -39,8 +40,8 @@ def inst_order(df):
     return (df.groupby("instancia")["n"].first().sort_values().index.tolist())
 
 
-def heatmap(mat, rows, cols, title, fname, fmt, cmap="Blues", note=None, vmax=None):
-    fig, ax = plt.subplots(figsize=(1.05 * len(cols) + 2.6, 0.48 * len(rows) + 1.6), dpi=200)
+def heatmap(mat, rows, cols, title, fname, fmt, cmap="Blues", note=None, vmax=None, labels=None):
+    fig, ax = plt.subplots(figsize=(1.05 * len(cols) + 2.6, 0.42 * len(rows) + 1.6), dpi=200)
     im = ax.imshow(mat, cmap=cmap, aspect="auto", vmin=0, vmax=vmax if vmax is not None else np.nanmax(mat))
     ax.set_xticks(range(len(cols)), cols)
     ax.set_yticks(range(len(rows)), rows)
@@ -51,7 +52,7 @@ def heatmap(mat, rows, cols, title, fname, fmt, cmap="Blues", note=None, vmax=No
             if np.isnan(v):
                 txt, col = "—", MUTED
             else:
-                txt = fmt(v)
+                txt = labels[i][j] if labels is not None else fmt(v)
                 col = "white" if v > 0.6 * (vmax if vmax is not None else np.nanmax(mat)) else INK
             ax.text(j, i, txt, ha="center", va="center", fontsize=9, color=col)
     ax.set_title(title, fontsize=11, color=INK, pad=28, loc="left")
@@ -63,6 +64,24 @@ def heatmap(mat, rows, cols, title, fname, fmt, cmap="Blues", note=None, vmax=No
     fig.tight_layout()
     fig.savefig(fname, bbox_inches="tight")
     plt.close(fig)
+
+
+def heatmap_pages(mat, rows, cols, title, fname, fmt, cmap="Blues", note=None,
+                  vmax=None, labels=None, rows_per_page=45):
+    """Guarda un heatmap paginado para que cada fila siga siendo legible."""
+    stem, ext = os.path.splitext(fname)
+    for old in glob.glob(f"{stem}_*.png"):
+        os.remove(old)
+    page_count = max(1, (len(rows) + rows_per_page - 1) // rows_per_page)
+    for page in range(page_count):
+        start = page * rows_per_page
+        end = min(start + rows_per_page, len(rows))
+        page_title = f"{title} (página {page + 1}/{page_count})"
+        page_fname = fname if page == 0 else f"{stem}_{page + 1:03d}{ext}"
+        page_note = note if page_count == 1 else f"{note} | instancias {start + 1}-{end} de {len(rows)}"
+        page_labels = None if labels is None else labels[start:end]
+        heatmap(mat[start:end], rows[start:end], cols, page_title, page_fname, fmt,
+                cmap=cmap, note=page_note, vmax=vmax, labels=page_labels)
 
 
 def convergence(hist, inst, t_limit, fname, title):
@@ -181,15 +200,29 @@ def main():
         json.dump(st, fh, indent=2, ensure_ascii=False)
 
     # ------------------------------------------------ figuras
-    rows = [f"{i} (n={int(meta[meta.instancia == i].n.iloc[0])})" for i in insts]
-    succ = meta.groupby(["instancia", "algoritmo"]).exito.mean().unstack()[algorithms].loc[insts].values
+    rows = [f"{i} (n={int(df[df.instancia == i].n.iloc[0])})" for i in insts]
+    plot_algorithms = algorithms + (["LKH"] if "LKH" in set(df.algoritmo) else [])
+    plot_data = df[df.algoritmo.isin(plot_algorithms)]
+    plot_groups = plot_data.groupby(["instancia", "algoritmo"])
+    success_counts = plot_groups.exito.sum().unstack().reindex(index=insts, columns=plot_algorithms)
+    run_counts = plot_groups.exito.size().unstack().reindex(index=insts, columns=plot_algorithms)
+    success_fraction = (success_counts / run_counts).values
+    success_labels = np.full(success_counts.shape, "—", dtype=object)
+    available = run_counts.notna().values
+    success_labels[available] = np.vectorize(lambda success, runs: f"{int(success)}/{int(runs)}")(
+        success_counts.values[available], run_counts.values[available]
+    )
+    heatmap_pages(success_fraction, rows, plot_algorithms,
+                  "Tasa de éxito: corridas que encontraron el ciclo",
+                  os.path.join(figdir, "tasa_exito.png"), lambda v: "", vmax=1.0,
+                  labels=success_labels,
+                  note=f"Cada celda muestra éxitos/corridas; {t_limit:.0f} s máx. por corrida")
+    cost_mean = plot_groups.mejor_costo.mean().unstack().reindex(index=insts, columns=plot_algorithms).values
+    heatmap_pages(cost_mean, rows, plot_algorithms,
+                  "Aristas faltantes promedio c(π) al terminar (0 = ciclo encontrado)",
+                  os.path.join(figdir, "costo_promedio.png"), lambda v: f"{v:.1f}", cmap="Oranges",
+                  note="— = algoritmo sin resultados para esa instancia")
     runs = int(meta.groupby(["instancia", "algoritmo"]).size().max())
-    heatmap(succ, rows, algorithms, "Tasa de éxito: fracción de corridas que encontraron el ciclo",
-            os.path.join(figdir, "tasa_exito.png"), lambda v: f"{v * runs:.0f}/{runs}", vmax=1.0,
-            note=f"{runs} corridas por celda, {t_limit:.0f} s máx. por corrida")
-    cmean = piv.values
-    heatmap(cmean, rows, algorithms, "Aristas faltantes promedio c(π) al terminar (0 = ciclo encontrado)",
-            os.path.join(figdir, "costo_promedio.png"), lambda v: f"{v:.1f}", cmap="Oranges")
     for inst in insts:
         if meta[meta.instancia == inst].n.iloc[0] >= 60:
             fname = os.path.join(figdir, f"convergencia_{inst}.png")
